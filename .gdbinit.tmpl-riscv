@@ -6,7 +6,7 @@ set disassemble-next-line auto
 set riscv use-compressed-breakpoints yes
 set scheduler-locking step
 file user/_primes
-break main
-layout src
+#break main
+#layout src
 #c
 
