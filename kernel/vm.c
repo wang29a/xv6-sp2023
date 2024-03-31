@@ -449,3 +449,29 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+// Recursively print page-table pages
+void
+vmprint(pagetable_t pagetable, int deep)
+{
+  if (deep == 0) {
+    printf("page table %p\n", pagetable);
+  }
+  if(deep == 3){
+    return;
+  }
+  for(int i = 0; i < 512; i ++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V)){
+      uint64 child = PTE2PA(pte);
+      if(deep == 0) {
+        printf(" ..%d: pte %p pa %p\n", i, pte, child);
+      }else if(deep == 1) {
+        printf(" .. ..%d: pte %p pa %p\n", i, pte, child);
+      }else if(deep == 2) {
+        printf(" .. .. ..%d: pte %p pa %p\n", i, pte, child);
+      }
+      vmprint((pagetable_t)child, deep + 1);
+    }
+  }
+}
