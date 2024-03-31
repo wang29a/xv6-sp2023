@@ -133,3 +133,19 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+void
+backtrace(void)
+{
+  uint64 sp, fp;
+  sp = r_sp();
+  uint64 stack_boundary = PGROUNDDOWN(sp);
+  fp = r_fp();
+  // printf("%p\n", fp);
+  // printf("%p\n", sp);
+  while(PGROUNDDOWN(fp) == stack_boundary){
+    printf("%p\n", *(uint64 *)(fp-8));
+    sp = fp;
+    fp = *(uint64 *)(fp-16);
+  }
+}
