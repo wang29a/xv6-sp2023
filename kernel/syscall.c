@@ -101,6 +101,8 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
+extern uint64 sys_sigalarm(void);
+extern uint64 sys_sigreturn(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -126,6 +128,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_sigalarm] sys_sigalarm,
+[SYS_sigreturn] sys_sigreturn,
 };
 
 void
@@ -144,4 +148,29 @@ syscall(void)
             p->pid, p->name, num);
     p->trapframe->a0 = -1;
   }
+}
+
+uint64 sys_sigalarm(void){
+  int ticks;
+  uint64 handler;
+
+  argint(0, &ticks);
+  argaddr(1, &handler);
+  if (ticks != 0)
+  {
+    myproc()->alarming = 0;
+    myproc()->alarm_interval = 0;
+    myproc()->alarm_ticks = ticks;
+    myproc()->alarm_handler = (void(*)()) handler;
+  }else{
+    myproc()->alarm_interval = 0;
+    myproc()->alarm_ticks = 0;
+    myproc()->alarm_handler = 0;
+  }
+  return 0;
+}
+uint64 sys_sigreturn(void){
+  *(myproc()->trapframe) = *(myproc()->alarm_frame);
+  myproc()->alarming = 0;
+  return myproc()->trapframe->a0;
 }
