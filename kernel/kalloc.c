@@ -23,14 +23,16 @@ struct {
   struct run *freelist;
 } kmem;
 
-uint64 *pp_refer;
+uint64 pp_refer[PHYSTOP >> PGSHIFT];
+
+struct spinlock refer_lock;
 
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  initlock(&refer_lock, "refer");
   freerange(end, (void*)PHYSTOP);
-  pp_refer = (uint64*)kalloc();
 }
 
 void
@@ -38,8 +40,10 @@ freerange(void *pa_start, void *pa_end)
 {
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
-  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE) {
+    pp_refer[((uint64)p)>>PGSHIFT] = 1;
     kfree(p);
+  }
 }
 
 // Free the page of physical memory pointed at by pa,
@@ -53,8 +57,14 @@ kfree(void *pa)
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
-  if(pp_refer[(uint64)pa>>PGSHIFT] != 1) {
-    pp_refer[(uint64)pa>>PGSHIFT] --;
+
+  if ((pp_refer[((uint64)pa)>>PGSHIFT] < 1))
+    panic("error page refer");
+
+  acquire(&refer_lock);
+  pp_refer[((uint64)pa)>>PGSHIFT] --;
+  release(&refer_lock);
+  if(pp_refer[(uint64)pa>>PGSHIFT] > 0) {
     return ;
   }
 
@@ -85,7 +95,18 @@ kalloc(void)
 
   if(r) {
     memset((char*)r, 5, PGSIZE); // fill with junk
-    pp_refer[(uint64)r>>PGSHIFT] = 1;
+
+    acquire(&refer_lock);
+    pp_refer[((uint64)r)>>PGSHIFT] = 1;
+    release(&refer_lock);
   }
   return (void*)r;
+}
+
+void
+pin(uint idx)
+{
+  acquire(&refer_lock);
+  pp_refer[idx] ++;
+  release(&refer_lock);
 }
